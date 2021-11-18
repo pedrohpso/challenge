@@ -4,7 +4,7 @@ const PNF = require('google-libphonenumber').PhoneNumberFormat;
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 
 //Reading the file 
-let input = fs.readFileSync('input1.csv', {encoding: 'utf8'})
+let input = fs.readFileSync('input.csv', {encoding: 'utf8'})
 
 //letiables for all parts of the .csv file.
 let table = _.split(input, '\n').slice(1);
@@ -73,21 +73,37 @@ _.forEach(columns, function(data){
     let addresses = [];
     Person = {}
 
-    _.forEach(header, function(test){
-        if(test == "group"){
+    _.forEach(header, function(header_name){
+        if(header_name == "group"){
             groups.push(data[i])
-        }else if (test != json[i]){
-            addresses.push(parseAddress(test, data[i],i))
-        }else if(test == json[i]){
-            Person[test] = data[i]
+        }else if (header_name != json[i]){
+            addresses.push(parseAddress(header_name, data[i],i))
+        }else if(header_name == json[i]){
+            if(data[i] == true || data[i] == "yes"){
+                data[i] = true;
+            }
+            if(data[i] == false || data[i] == "no"){
+                data[i] = false;
+            }
+
+            Person[header_name] = data[i]
         }
         i++;
     })
+
+    _.remove(groups,function(node){
+        return node == '';
+    })
     Person['groups'] = groups;
+
+    _.remove(addresses,function(node){
+        return node == undefined;
+    })
     Person['addresses'] = addresses;
+
     //people.push(Person);
 
-    //console.log(Person.addresses);
+    console.log(Person);
     //people.push(new Person(data[0],"100",{type: "phone", tags: ["test", "test1"], address: "83274823847"}, ["Turma 1", "Turma 2"], true, true));
     
 })
@@ -105,7 +121,7 @@ function parseAddress(header_column,data_column,header_column_id){
     return result;
 }
 
-// Creates, fixes and validates the email address with proper tags then 
+// Creates, fixes and validates the email address with proper tags
 function parseEmail(header_id,column){
     Address = json[header_id];
 
@@ -137,11 +153,13 @@ function validateEmail(email){
     return re.test(String(email).toLowerCase());
 }
 
+
+// Creates, fixes and validates the email address with proper tags
 function parsePhone(header_id,column){
     Address = json[header_id];
     let phone = column;
     
-    if(validatePhone(phone)){
+    if(phone){
         Address['address'] = phone;
         return Address;
     }else{
