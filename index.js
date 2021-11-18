@@ -85,8 +85,11 @@ _.forEach(columns, function(data){
             if(data[i] == false || data[i] == "no"){
                 data[i] = false;
             }
-
-            Person[header_name] = data[i]
+            if(_.find(people, function (person){
+                return person.eid == data[i]
+            })){
+                Person[header_name] = data[i]
+            }
         }
         i++;
     })
@@ -99,9 +102,10 @@ _.forEach(columns, function(data){
     _.remove(addresses,function(node){
         return node == undefined;
     })
+
     Person['addresses'] = addresses;
 
-    //people.push(Person);
+    people.push(Person);
 
     console.log(Person);
     //people.push(new Person(data[0],"100",{type: "phone", tags: ["test", "test1"], address: "83274823847"}, ["Turma 1", "Turma 2"], true, true));
