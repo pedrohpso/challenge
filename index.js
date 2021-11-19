@@ -77,19 +77,24 @@ _.forEach(columns, function(data){
         if(header_name == "group"){
             groups.push(data[i])
         }else if (header_name != json[i]){
-            addresses.push(parseAddress(header_name, data[i],i))
+            let columns = _.split(data[i], "/");
+            _.forEach(columns, function (column_data){
+                addresses.push(parseAddress(header_name,column_data,i));
+            })
+            // console.log(addresses);
         }else if(header_name == json[i]){
-            if(data[i] == true || data[i] == "yes"){
-                data[i] = true;
-            }
+            
             if(data[i] == false || data[i] == "no"){
                 data[i] = false;
             }
-            if(_.find(people, function (person){
-                return person.eid == data[i]
-            })){
-                Person[header_name] = data[i]
+            if(data[i] == true || data[i] == "yes"){
+                data[i] = true;
             }
+
+
+            //if(_.find(people, function (person){return person.eid == data[i]}) != undefined){
+                Person[header_name] = data[i]
+            //}
         }
         i++;
     })
@@ -97,6 +102,7 @@ _.forEach(columns, function(data){
     _.remove(groups,function(node){
         return node == '';
     })
+    console.log(groups);
     Person['groups'] = groups;
 
     _.remove(addresses,function(node){
@@ -104,36 +110,40 @@ _.forEach(columns, function(data){
     })
 
     Person['addresses'] = addresses;
-
+    //console.log(Person)
     people.push(Person);
-
-    console.log(Person);
-    //people.push(new Person(data[0],"100",{type: "phone", tags: ["test", "test1"], address: "83274823847"}, ["Turma 1", "Turma 2"], true, true));
-    
 })
 
-function parseAddress(header_column,data_column,header_column_id){
+//console.log(people);
+
+// var dictstring = JSON.stringify(people);
+// fs.writeFile("output.json", dictstring,function(err, result) {
+//     if(err) console.log('error', err);
+// });
+
+function parseAddress(header_column,data,header_column_id){
+    
     let result = {};
     if(_.includes(header_column, "email") == true){
-        result = parseEmail(header_column_id,data_column);
+        result = parseEmail(header_column_id,data);
     }else if (_.includes(header_column, "phone") == true){
-        result = parsePhone(header_column_id,data_column);
+        result = parsePhone(header_column_id,data);
     }else{
         return undefined;
     }
-
+    //console.log(result);
     return result;
 }
 
 // Creates, fixes and validates the email address with proper tags
 function parseEmail(header_id,column){
-    Address = json[header_id];
+    let add = _.create(Address, json[header_id])
 
     let email = removeInvalidCharacters(column);
-    
+    //console.log(email);
     if(validateEmail(email)){
-        Address['address'] = email;
-        return Address;
+        add['address'] = email;
+        return add;
     }else{
         return undefined;
     }
@@ -142,7 +152,7 @@ function parseEmail(header_id,column){
 // Removes invalid characters and fix some typos of the email address.
 function removeInvalidCharacters(email){
     
-    _.replace(email, /(:|\s|#|'|'|\\)*/g, '')
+    email =_.replace(email, /(:|\s|#|'|'|\\)*/g, '')
     .replace(/(,|\.\.|>)/g, '.')
     .replace('@@', '@')
     .replace(/[()]/g, '')
@@ -157,30 +167,36 @@ function validateEmail(email){
     return re.test(String(email).toLowerCase());
 }
 
-
 // Creates, fixes and validates the email address with proper tags
 function parsePhone(header_id,column){
-    Address = json[header_id];
-    let phone = column;
+    //console.log(column);
+    let add = _.create(Address, json[header_id])
+    const phone = formatAndValidatePhone(column);
     
     if(phone){
-        Address['address'] = phone;
-        return Address;
+        add['address'] = phone;
+        return add;
     }else{
         return undefined;
     }
 }
-function validatePhone(phone){
-    console.log("phone:",phone)
-    if(phoneUtil.isValidNumber(phone)){
-        
-        let number = phoneUtil.parseAndKeepRawInput(phone, 'BR');
-        console.log("number",number)
-        //phoneUtil.isValidNumberForRegion(phoneUtil.parse('202-456-1414', 'US'), 'US');
-    }else{
+
+function formatAndValidatePhone(phone){
+    phone = _.replace(phone,/[^a-z0-9]/gi, "");
+    try {
+        const number = phoneUtil.parse(phone, 'BR');
+        return validatePhone(number) ? `${number.values_['1']}${number.values_['2']}`: false;
+    } catch (error) {
         return false;
     }
+}
+
+function parseGroups(groups) {
     
+}
+
+function validatePhone(phone){
+    return phoneUtil.isValidNumber(phone, "BR");
 }
 //console.log(People);
 //console.log(json);
