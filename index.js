@@ -3,10 +3,14 @@ const _ = require('lodash');
 const PNF = require('google-libphonenumber').PhoneNumberFormat;
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 
-//Reading the file 
-let input = fs.readFileSync('input.csv', {encoding: 'utf8'})
 
-//letiables for all parts of the .csv file.
+// Variable with file path.
+const file_input = 'input1.csv';
+
+//Reading the file 
+let input = fs.readFileSync(file_input, {encoding: 'utf8'})
+
+// variables for all parts of the .csv file
 let table = _.split(input, '\n').slice(1);
 const header = _.split(_.split(input,'\n').slice(0,1), ",");
 let columns = [];
@@ -17,7 +21,7 @@ _.remove(table,function(n){
 })
 
 // let "columns" receives every column value for all rows,
-// also removes commas and quotation marks in group column that were causin bugs.
+// also removes commas and quotation marks in group column that were causin bugs
 _.forEach(table, function (row){
     row = _.replace(row, /\".*?\"/g, function (aux){
         aux = _.replace(aux, ',', '/').replace( '"', '').replace('"', '');
@@ -27,24 +31,24 @@ _.forEach(table, function (row){
 })
 
 //Object Person with constructors
-function Person(fullname,eid,addresses,groups,invisible,see_all){
-    this.fullname = fullname;
-    this.eid = eid;
-    this.groups = groups;
-    this.addresses = addresses;
-    this.invisible = invisible;
-    this.see_all = see_all;
+const Person = {
+    fullname: '',
+    eid: '',
+    groups: [],
+    addresses: [],
+    invisible: false,
+    see_all: false
 }
 
 //Object Address with constructors
-function Address(type, tags, address){
-    this.type = type;
-    this.tags = tags;
-    this.address = address;
+const Address = {
+    type : '',
+    tags : [],
+    address : ''
 }
 
 // Creates a variable that identify the  keys that will be used in the .json file,
-// identifies all tags on columns with space in their names.
+// identifies all tags on columns with space in their names
 let json = [];
 _.forEach(header, function(column){
     if(_.indexOf(column, " ") !== -1){
@@ -63,15 +67,26 @@ _.forEach(header, function(column){
     }
 })
 
+// Variable thats going to be printed out in output.json
 let people = [];
 
+// Main part of the code
+//
+// For every row in the csv, it iterates through all columns, then based on header name
+// does a specific treatment of the data.
 _.forEach(columns, function(data){
     let i=0;
 
     let groups = [];
     let addresses = [];
-    Person = {}
+    let new_person = _.create(Person);
 
+    //Get the index from the eid column, if in any case it isn't on the 2nd column or index 1.
+    const eid_index = _.indexOf(json, 'eid');
+
+    // returns a person with the current row 'eid' if it already exists, else returns undefined.
+    const duplicated_person = verifyIdExists(data[eid_index]);
+    
     _.forEach(header, function(header_name){
         if(header_name == "group"){
             groups.push(data[i])
@@ -82,6 +97,7 @@ _.forEach(columns, function(data){
             })
         }else if(header_name == json[i]){
             
+            // Adapts yes/no, 1/0 to true and false
             if(data[i] == false || data[i] == "no"){
                 data[i] = false;
             }
@@ -89,35 +105,59 @@ _.forEach(columns, function(data){
                 data[i] = true;
             }
 
-
-            //if(_.find(people, function (person){return person.eid == data[i]}) != undefined){
-                Person[header_name] = data[i]
-            //}
+            // Only creates the key/value in the object Person if it doesn't exists already.
+            if(duplicated_person == undefined){
+                new_person[header_name] = data[i]
+            }
         }
         i++;
     })
 
-    _.remove(groups,function(node){
-        return node == '';
-    })
-    ;
-    Person['groups'] = parseGroups(groups);
-
-    _.remove(addresses,function(node){
-        return node == undefined;
+    // Removes groups or addresses that return empty.
+    _.remove(groups,function(group){
+        return group == '';
+    });
+    _.remove(addresses,function(address){
+            return address == undefined;
     })
 
-    Person['addresses'] = addresses;
-    console.log(Person)
-    people.push(Person);
+
+    // If the person is duplicated, it will only add addresses and groups that aren't already in the addresses/groups array.
+    if(duplicated_person != undefined){
+        _.forEach(parseGroups(groups), function(gp){
+            if(_.indexOf(duplicated_person['groups'], gp) === -1){
+                duplicated_person['groups'].push(gp);
+            } 
+        })
+        _.forEach(addresses, function(ad){
+            if(_.indexOf(duplicated_person['addresses'], ad) === -1){
+                duplicated_person['addresses'].push(ad);
+            } 
+        })
+        //console.log(duplicated_person);
+    }else{
+        new_person['groups'] = parseGroups(groups);
+        new_person['addresses'] = addresses;
+        people.push(new_person);
+    }
 })
+
+// Verifies if a person with the received eid already exists
+function verifyIdExists (eid){
+    let pers = _.find(people, function (person){return person.eid == eid})
+    if( pers != undefined){
+        return pers;
+    }
+    return undefined;
+}
 
 //console.log(people);
 
-// var dictstring = JSON.stringify(people);
-// fs.writeFile("output.json", dictstring,function(err, result) {
-//     if(err) console.log('error', err);
-// });
+let dictstring = JSON.stringify(people);
+
+fs.writeFile("output.json", dictstring,function(err, result) {
+    if(err) console.log('error', err);
+});
 
 
 // Decides based on column name(includes 'email' or 'phone') which parse function should be executed with the received address.
