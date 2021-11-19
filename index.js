@@ -43,9 +43,8 @@ function Address(type, tags, address){
     this.address = address;
 }
 
-// Creates a variable that identify the json keys that will be used,
-// identifies tags on columns with space in their names.
-
+// Creates a variable that identify the  keys that will be used in the .json file,
+// identifies all tags on columns with space in their names.
 let json = [];
 _.forEach(header, function(column){
     if(_.indexOf(column, " ") !== -1){
@@ -61,7 +60,7 @@ _.forEach(header, function(column){
 
     }else {
         json.push(column);
-    } 
+    }
 })
 
 let people = [];
@@ -81,7 +80,6 @@ _.forEach(columns, function(data){
             _.forEach(columns, function (column_data){
                 addresses.push(parseAddress(header_name,column_data,i));
             })
-            // console.log(addresses);
         }else if(header_name == json[i]){
             
             if(data[i] == false || data[i] == "no"){
@@ -102,15 +100,15 @@ _.forEach(columns, function(data){
     _.remove(groups,function(node){
         return node == '';
     })
-    console.log(groups);
-    Person['groups'] = groups;
+    ;
+    Person['groups'] = parseGroups(groups);
 
     _.remove(addresses,function(node){
         return node == undefined;
     })
 
     Person['addresses'] = addresses;
-    //console.log(Person)
+    console.log(Person)
     people.push(Person);
 })
 
@@ -121,6 +119,8 @@ _.forEach(columns, function(data){
 //     if(err) console.log('error', err);
 // });
 
+
+// Decides based on column name(includes 'email' or 'phone') which parse function should be executed with the received address.
 function parseAddress(header_column,data,header_column_id){
     
     let result = {};
@@ -181,6 +181,7 @@ function parsePhone(header_id,column){
     }
 }
 
+// Formats and validates phone, returning false only if unable to do so.
 function formatAndValidatePhone(phone){
     phone = _.replace(phone,/[^a-z0-9]/gi, "");
     try {
@@ -191,13 +192,27 @@ function formatAndValidatePhone(phone){
     }
 }
 
-function parseGroups(groups) {
-    
-}
-
+// Validates number according to Brazil's phone number format.
 function validatePhone(phone){
     return phoneUtil.isValidNumber(phone, "BR");
 }
+
+// Returns the array with fixed groups;
+function parseGroups(groups) {
+    let new_groups = [];
+    _.forEach(groups, function(group){
+        let new_group = _.split(group, "/");
+        _.forEach(new_group, function(aux){
+            aux = _.trim(aux);
+            new_groups = _.concat(new_groups, aux);
+        })
+    });
+    //console.log("new_groups:", new_groups);
+
+    return new_groups;
+}
+
+
 //console.log(People);
 //console.log(json);
 //console.log(header);
