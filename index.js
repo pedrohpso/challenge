@@ -3,34 +3,35 @@ const _ = require('lodash');
 const PNF = require('google-libphonenumber').PhoneNumberFormat;
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 
-
 // Variable with file path.
-const file_input = 'input1.csv';
+const file_input = 'input.csv';
 
 //Reading the file 
 let input = fs.readFileSync(file_input, {encoding: 'utf8'})
 
-// variables for all parts of the .csv file
-let table = _.split(input, '\n').slice(1);
-const header = _.split(_.split(input,'\n').slice(0,1), ",");
-let columns = [];
+// table represents the .csv file divided row by row.
+const table = _.split(input, '\n').slice(1);
 
 //Remove all empty rows on the .csv file
 _.remove(table,function(n){
     return n == "";
 })
 
+// header is an array with all the columns from the header.
+const header = _.split(_.split(input,'\n').slice(0,1), ",");
+
 // let "columns" receives every column value for all rows,
-// also removes commas and quotation marks in group column that were causin bugs
+// 
+let columns = [];
 _.forEach(table, function (row){
     row = _.replace(row, /\".*?\"/g, function (aux){
         aux = _.replace(aux, ',', '/').replace( '"', '').replace('"', '');
         return aux;
     })
     columns.push(_.split(row, ','))
-})
+});
 
-//Object Person with constructors
+//Object Person
 const Person = {
     fullname: '',
     eid: '',
@@ -40,17 +41,19 @@ const Person = {
     see_all: false
 }
 
-//Object Address with constructors
+//Object Address
 const Address = {
     type : '',
     tags : [],
     address : ''
 }
 
-// Creates a variable that identify the  keys that will be used in the .json file,
-// identifies all tags on columns with space in their names
+// Creates a variable that identifies the tags and type, from the header columns,
+// if there is a space in the name, else if its a column for an address without tags it defines a no tag column as an object. 
+// else just makes the element from the array the name of the column.
 let json = [];
 _.forEach(header, function(column){
+    console.log(column);
     if(_.indexOf(column, " ") !== -1){
 
         column = _.replace(column,'"', '').replace('"', '').split(' ')
@@ -62,6 +65,12 @@ _.forEach(header, function(column){
         
         json.push(column);
 
+    }else if(column == "phone" || column == "email"){
+        column={
+            type: column,
+            tags: []
+        }
+        json.push(column);
     }else {
         json.push(column);
     }
@@ -81,16 +90,20 @@ _.forEach(columns, function(data){
     let addresses = [];
     let new_person = _.create(Person);
 
-    //Get the index from the eid column, if in any case it isn't on the 2nd column or index 1.
+    //Get the index from the 'eid' column, if in any case it isn't on the 2nd column or index 1.
     const eid_index = _.indexOf(json, 'eid');
 
-    // returns a person with the current row 'eid' if it already exists, else returns undefined.
+    // returns a person with the current row 'eid' if it already exists in the people array, else returns undefined.
     const duplicated_person = verifyIdExists(data[eid_index]);
     
+    // if the header is a group column it adds its content to the group array,
+    // if its json counterpart is an object that has tags and type, it is treated as an address.
+    // else is just a new key/value in the Person object.
     _.forEach(header, function(header_name){
         if(header_name == "group"){
             groups.push(data[i])
         }else if (header_name != json[i]){
+            // if theres more than one address in the same column, it will split then add all of them.
             let columns = _.split(data[i], "/");
             _.forEach(columns, function (column_data){
                 addresses.push(parseAddress(header_name,column_data,i));
@@ -118,7 +131,7 @@ _.forEach(columns, function(data){
         return group == '';
     });
     _.remove(addresses,function(address){
-            return address == undefined;
+        return address == undefined;
     })
 
 
@@ -134,7 +147,6 @@ _.forEach(columns, function(data){
                 duplicated_person['addresses'].push(ad);
             } 
         })
-        //console.log(duplicated_person);
     }else{
         new_person['groups'] = parseGroups(groups);
         new_person['addresses'] = addresses;
@@ -142,7 +154,7 @@ _.forEach(columns, function(data){
     }
 })
 
-// Verifies if a person with the received eid already exists
+// Verifies if a person with the received eid already exists in the people array.
 function verifyIdExists (eid){
     let pers = _.find(people, function (person){return person.eid == eid})
     if( pers != undefined){
@@ -151,10 +163,8 @@ function verifyIdExists (eid){
     return undefined;
 }
 
-//console.log(people);
-
+// Code responsible for writing the output.json file.
 let dictstring = JSON.stringify(people);
-
 fs.writeFile("output.json", dictstring,function(err, result) {
     if(err) console.log('error', err);
 });
@@ -171,22 +181,20 @@ function parseAddress(header_column,data,header_column_id){
     }else{
         return undefined;
     }
-    //console.log(result);
+
     return result;
 }
 
-// Creates, fixes and validates the email address with proper tags
 function parseEmail(header_id,column){
     let add = _.create(Address, json[header_id])
 
     let email = removeInvalidCharacters(column);
-    //console.log(email);
     if(validateEmail(email)){
         add['address'] = email;
         return add;
-    }else{
-        return undefined;
     }
+
+    return undefined;
 }
 
 // Removes invalid characters and fix some typos of the email address.
@@ -207,21 +215,19 @@ function validateEmail(email){
     return re.test(String(email).toLowerCase());
 }
 
-// Creates, fixes and validates the email address with proper tags
 function parsePhone(header_id,column){
-    //console.log(column);
     let add = _.create(Address, json[header_id])
     const phone = formatAndValidatePhone(column);
     
     if(phone){
         add['address'] = phone;
         return add;
-    }else{
-        return undefined;
     }
+
+    return undefined;
 }
 
-// Formats and validates phone, returning false only if unable to do so.
+// Formats and validates phone address object with proper tags, returning false only if unable to do so.
 function formatAndValidatePhone(phone){
     phone = _.replace(phone,/[^a-z0-9]/gi, "");
     try {
@@ -247,14 +253,5 @@ function parseGroups(groups) {
             new_groups = _.concat(new_groups, aux);
         })
     });
-    //console.log("new_groups:", new_groups);
-
     return new_groups;
 }
-
-
-//console.log(People);
-//console.log(json);
-//console.log(header);
-//console.log(columns);
-//console.log(header);
